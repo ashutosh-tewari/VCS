@@ -12,20 +12,69 @@ import torch.nn as nn
 import torch.distributions as trd
 import torch.distributions.transforms as trt
 
-class ConditionalExpenseModel(nn.Module):
+class ConditionalModel(nn.Module):
     def __init__(self, input_size, layers_size):
-        super(ConditionalExpenseModel, self).__init__()
+        super(ConditionalModel, self).__init__()
+        
+        # mean model
+        layers=OrderedDict()
+        size_in=input_size
+        for i in range(len(layers_size)):
+            size_out = layers_size[i]
+            layers[f'mu_linear{i}']=nn.Linear(size_in,size_out)
+            layers[f'mu_batchnorm{i}']=nn.BatchNorm1d(size_out)
+            layers[f'mu_relu{i}']=nn.ReLU()
+            size_in=size_out
+        layers['mu']=nn.Linear(size_in,1)
+        self.mu= nn.Sequential(layers)
+        
+        # log_sig model
+        layers=OrderedDict()
+        size_in=input_size
+        for i in range(len(layers_size)):
+            size_out = layers_size[i]
+            layers[f'sig_linear{i}']=nn.Linear(size_in,size_out)
+            layers[f'sig_batchnorm{i}']=nn.BatchNorm1d(size_out)
+            layers[f'sig_relu{i}']=nn.ReLU()
+            size_in=size_out
+        layers['logSig']=nn.Linear(size_in,1)
+        self.log_sig= nn.Sequential(layers)
+    
+    def forward(self,x):
+        return (self.mu(x),self.log_sig(x))
+    
+    
+class QuantileRegressionModel(nn.Module):
+    def __init__(self, input_size, layers_size, quantiles_at):
+        super(QuantileRegressionModel, self).__init__()
         layers=OrderedDict()
         size_in=input_size
         for i in range(len(layers_size)):
             size_out = layers_size[i]
             layers[f'linear{i}']=nn.Linear(size_in,size_out)
-            layers[f'rely{i}']=nn.ReLU()
+            layers[f'batchnorm{i}']=nn.BatchNorm1d(size_out)
+            layers[f'relu{i}']=nn.ReLU()
             size_in=size_out
-        layers['mu_logSig']=nn.Linear(size_in,2)
+        layers['quantiles']=nn.Linear(size_in,len(quantiles_at))
         self.model= nn.Sequential(layers)
     
     def forward(self,x):
-        out=self.model(x)
-        mu,log_sig=out[:,0],out[:,1]
-        return (mu,log_sig)
+        return self.model(x)
+    
+class BinaryClassificationModel(nn.Module):
+    def __init__(self, input_size, layers_size):
+        super(BinaryClassificationModel, self).__init__()
+        layers=OrderedDict()
+        size_in=input_size
+        for i in range(len(layers_size)):
+            size_out = layers_size[i]
+            layers[f'linear{i}']=nn.Linear(size_in,size_out)
+            layers[f'batchnorm{i}']=nn.BatchNorm1d(size_out)
+            layers[f'relu{i}']=nn.ReLU()
+            size_in=size_out
+        layers['class_linear']=nn.Linear(size_in,1)
+        layers['class_sigmoid']=nn.Sigmoid()
+        self.model= nn.Sequential(layers)
+    
+    def forward(self,x):
+        return self.model(x)
