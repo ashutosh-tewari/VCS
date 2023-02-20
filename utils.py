@@ -71,18 +71,14 @@ def getBatch(df, row_ids, covar_names, target_name):
 
 
 
-def preProcess(df):
+def preProcess(df, split=0.75):
        
     # Reassigning the education category "0" equal to "9" (so as to have caterories [9,10,11,12,13,14,15,16,17]) 
     df['education']=df['education'].apply(lambda x: 9 if x==0 else x)
     
-    # Removing the rows with negative income or expenses
+    # Removing the rows with non-positive income or expenses
     df = df.loc[df['income']>=0]
-    if 'expense' in df: df = df.loc[df['expense']>=0] 
-    # Adding a column with scaled weights
-    if 'wi' in df:
-        total=sum(df['wi'])
-        df['wts']=df['wi']/total
+    if 'expense' in df: df = df.loc[df['expense']>0] 
         
     #Adding a small constant (1.0) to the income/expense values that are zero and adding column with log-income /log-expense
     df['income']=df['income'].apply(lambda x: 1. if x==0 else x)
@@ -93,8 +89,21 @@ def preProcess(df):
         
     # replacing Nans with -1
     df=df.replace(np.nan,-1)
+    
+    # Further splittling the table (for training and validation)
+    if split:
+        # first, shuffling training dataset before splitting (sample with fraction =1 shuffles all the rows)
+        np.random.seed(0)
+        df=df.sample(frac=1)
+        n_trn = int(len(df)*split)
+        # then, splitting
+        df_2=df.iloc[n_trn:]
+        df_1=df.iloc[:n_trn]
+        return df_1,df_2
+    else:
+        return df
+    
 
-    return df
 
 
 # def preProcess(df):
@@ -146,18 +155,7 @@ def hotEncodeData(df,categorical_vars):
     return df_hot_encoded, column_names
 
 
-# def hotEncodeData(df,categorical_vars):
-#     # hot encoding the categorical variables
-#     hot_encoded_data={}
-#     num_categories = {}
-#     for var in categorical_vars:
-#         x = df[var]
-#         unique_cats=np.sort(pd.unique(x))
-#         enc=OneHotEncoder(drop='first',categories=[unique_cats],dtype=np.int32)
-#         enc.fit(x.to_numpy().reshape(-1,1))
-#         hot_encoded_data[var] = enc.transform(x.to_numpy().reshape(-1,1))
-#         num_categories[var]=len(unique_cats)-1 
-#     return hot_encoded_data, num_categories
+ 
     
 def plotQuantiles(tru, quantiles, num_samples=50, axis_labels={'x':'True value', 'y':'Estimated Value'}, log_scale=True):
     ids=np.random.choice(tru.shape[0],num_samples, replace=False)

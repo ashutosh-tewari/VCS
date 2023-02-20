@@ -61,6 +61,24 @@ class QuantileRegressionModel(nn.Module):
     def forward(self,x):
         return self.model(x)
     
+class ResidualModel(nn.Module):
+    def __init__(self, input_size, layers_size):
+        super(ResidualModel, self).__init__()
+        layers=OrderedDict()
+        size_in=input_size
+        for i in range(len(layers_size)):
+            size_out = layers_size[i]
+            layers[f'linear{i}']=nn.Linear(size_in,size_out)
+            layers[f'batchnorm{i}']=nn.BatchNorm1d(size_out)
+            layers[f'relu{i}']=nn.ReLU()
+            size_in=size_out
+        layers['class_linear']=nn.Linear(size_in,1)
+        self.model= nn.Sequential(layers)
+        
+    def forward(self,x):
+        return self.model(x)
+    
+    
 class BinaryClassificationModel(nn.Module):
     def __init__(self, input_size, layers_size):
         super(BinaryClassificationModel, self).__init__()
